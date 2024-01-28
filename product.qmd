@@ -1,0 +1,39 @@
+---
+title: "owid energy visualization"
+author: "Mina Naseh"
+institute: "University of Luxembourg"
+format: revealjs
+editor: visual
+---
+
+## 
+
+```{r setup}
+library("tidytuesdayR")
+library("dplyr")
+library("tidyr")
+library("ggmap")
+library("rworldmap")
+library("plotly")
+library("readr")
+library(ggplot2)
+library(rnaturalearth)
+library(sf)
+library(countrycode)
+```
+
+## Dataset
+
+-   explaining dataset
+
+## Plot1
+
+```{r}
+1 + 1
+```
+
+# Plot2
+
+```{r}
+# plot2
+```
