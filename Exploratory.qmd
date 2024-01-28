@@ -9,7 +9,7 @@ editor: visual
 Here we install all the packages needed on local, if they are not installed before.
 
 ```{r}
-packages_to_install <- c("tidytuesdayR", "dplyr", "tidyr", "ggmap", "rworldmap", "plotly", "readr", "ggplot2", "rnaturalearth", "sf")
+packages_to_install <- c("tidytuesdayR", "dplyr", "tidyr", "ggmap", "rworldmap", "plotly", "readr", "ggplot2", "rnaturalearth", "sf", "RColorBrewer", "ggrepel", "stringr")
 
 for (package in packages_to_install) { if (!requireNamespace(package, quietly = TRUE)) { install.packages(package) } }
 ```
@@ -26,6 +26,9 @@ library(ggplot2)
 library(rnaturalearth)
 library(sf)
 library(countrycode)
+library(RColorBrewer)
+library(ggrepel)
+library(stringr)
 ```
 
 ## Loading Data
@@ -45,6 +48,7 @@ There is a codebook explaining every column:
 For the final product, a final dataset will be chosen and downloaded in the product for the user.
 
 ```{r}
+# owid_energy <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2023/2023-06-06/owid-energy.csv')
 owid_energy <- read_csv("data/owid-energy.csv")
 owid_energy_data <- read_csv("data/owid-energy-data.csv")
 stat_data <- read_csv("data/Statistical Review of World Energy Narrow File.csv")
@@ -115,36 +119,90 @@ owid_energy |>
 ```
 
 ```{r}
-
-library(dplyr)
-library(ggplot2)
-library(countrycode)
-
 df <- owid_energy |> 
+  filter(year == "2018" & country != "World") |> 
   mutate(
     gdp_per_capita = gdp / population,
-    greenhouse_gas_emissions_per_capita = greenhouse_gas_emissions / population,
-    continent = countrycode(country, "country.name", "continent")
+    greenhouse_gas_emissions_per_capita = greenhouse_gas_emissions / population
   ) |> 
   drop_na(gdp_per_capita, greenhouse_gas_emissions_per_capita)
+  
+df <- df |> 
+  mutate(continent = countrycode(country, "country.name", "continent")) |> drop_na(gdp_per_capita, greenhouse_gas_emissions_per_capita, population, continent)
 
-# Plot the data with colors representing continents
-df |> 
-   
-ggplot(aes(x = gdp_per_capita, y = greenhouse_gas_emissions_per_capita, size = population, color = continent)) +
+df <- df |>
+  mutate(label = ifelse(country %in% c("United States", "China", "India", "Germany", "Qatar", "United Arab Emirates", "Norway", "Luxembourg", "Finland", "Nigeria", "Canada", "Iran", "Ethiopia", "Mozambique", "Russia"), country, NA))
+
+custom_colors <- c("Asia" = "#1f78b4", "Africa" = "#33a02c", "Europe" = "#e31a1c", 
+                   "Americas" = "#ff7f00", "Oceania" = "#6a3d9a")
+
+ggplot(df, aes(x = gdp_per_capita, y = greenhouse_gas_emissions_per_capita, size = population, color = continent)) +
   geom_point(alpha = 0.7) +
-  scale_size_continuous(range = c(1, 10)) + # Adjust this range as needed
-  scale_color_viridis_d() + # This will use a color scale suitable for continents
+  geom_text(aes(label = label), size = 2.5, hjust=0.5, vjust=1) +
+  scale_size_continuous(range = c(1, 15)) +
+  scale_color_manual(values = custom_colors) + 
+  scale_x_log10() +
   theme_minimal() +
   labs(
-    title = "Consumption-based CO2 emissions per capita vs. GDP per capita",
-    x = "GDP per capita (international $)",
-    y = "Consumption-based CO2 emissions per capita (tonnes)",
+    title = "Emissions from electricity generation per capita vs. GDP per capita, 2018",
+    x = "(international $)",
+    y = "(tonnes)",
     size = "Population",
     color = "Continent"
   ) +
   theme(legend.position = "right")
 
+
+```
+
+```{r}
+
+highlight_countries <- c("United States", "China", "India", "Germany", "Qatar", 
+                         "United Arab Emirates", "Norway", "Luxembourg", 
+                         "Canada", "Iran", "Ethiopia", "Mozambique", "Russia")
+
+
+df <- owid_energy |> 
+  filter(year == 2018, country != "World") |> 
+  mutate(
+    gdp_per_capita = gdp / population,
+    greenhouse_gas_emissions_per_capita = greenhouse_gas_emissions / population,
+    highlight = ifelse(country %in% highlight_countries, TRUE, FALSE), 
+    label = ifelse(highlight, as.character(country), NA)  
+  ) |> 
+  drop_na(gdp_per_capita, greenhouse_gas_emissions_per_capita) |> 
+  mutate(
+    continent = countrycode(country, "country.name", "continent")
+  ) |> 
+  drop_na(continent) 
+
+
+custom_colors <- c("Asia" = "#1f78b4", "Africa" = "#33a02c", "Europe" = "#e31a1c", 
+                   "Americas" = "#ff7f00", "Oceania" = "#6a3d9a")
+
+
+ggplot(df, aes(x = gdp_per_capita, y = greenhouse_gas_emissions_per_capita, size = population)) +
+  geom_point(aes(color = continent), alpha = 0.3) + 
+  geom_point(data = df %>% filter(highlight), aes(color = continent), alpha = 0.7) +  
+  geom_text_repel(
+    aes(label = label, color = continent),
+    size = 3.5,
+    box.padding = unit(0.35, "lines"),
+    point.padding = unit(0.5, "lines"),
+    segment.color = "white"
+  ) +
+  scale_size_continuous(range = c(1, 15)) +
+  scale_color_manual(values = custom_colors) +
+  scale_x_log10() +
+  theme_minimal() +
+  labs(
+    x = "GDP per capita (international $)",
+    y = "Emissions per capita (tonnes)",
+    size = "Population",
+    color = "Continent"
+  ) +
+  theme(legend.position = "right") +
+  guides(color = guide_legend(override.aes = list(alpha = 1))) 
 
 ```
 
@@ -184,6 +242,10 @@ oil
 renewable
 solar power
 wind power
+```
+
+```{r}
+unique(owid_energy$country)
 ```
 
 ## Solar Energy Consumption Trends
@@ -271,35 +333,6 @@ fig <- plot_ly(data_2020, x = ~gdp, y = ~electricity_demand, type = 'scatter', m
 fig
 ```
 
-### How much of the country's electricity comes from renewables?
-
-```{r}
-filtered_data <- owid_energy |> 
-  select(year, country, matches("_electricity$"), -other_renewable_exc_biofuel_electricity, -other_renewable_electricity, -per_capita_electricity)
-colnames(filtered_data)
-filtered_data
-```
-
-```{r}
-filtered_data |> 
-  filter(year == 2020 , country %in% c("Low-income countries", "High-income countries", "Upper-middle-income countries", "Lower-middle-income countries")) |> 
-ggplot(aes(x = country)) +
-  geom_bar(aes(y = biofuel_electricity, fill = "Biofuel"), stat = "identity") +
-  geom_bar(aes(y = coal_electricity, fill = "Coal"), stat = "identity") +
-  geom_bar(aes(y = wind_electricity, fill = "Wind"), stat = "identity") +
-  geom_bar(aes(y = oil_electricity, fill = "Oil"), stat = "identity") +
-  geom_bar(aes(y = fossil_electricity, fill = "Fossil"), stat = "identity") +
-  geom_bar(aes(y = gas_electricity, fill = "Gas"), stat = "identity") +
-  geom_bar(aes(y = hydro_electricity, fill = "Hydro"), stat = "identity") +
-  labs(title = "Electricity Generation by Source in 2020",
-       x = "Country",
-       y = "Electricity Generation (GWh)",
-       fill = "Source") +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1))
-
-```
-
 ## OECD Vs Non-OECD
 
 ```{r}
@@ -328,6 +361,7 @@ ggplot(annual_data, aes(x = Year, y = Total, fill = OECD_status)) +
   labs(title = "Change in primary energy (EJ) by OECD status", 
        x = "Year", 
        y = "Primary energy (EJ)")
+
 ```
 
 ```{r}
@@ -346,7 +380,15 @@ ggplot(energy_type, aes(x = Year, y = Total, fill = Var)) +
        y = "Primary energy (EJ)")
 ```
 
-### Income Groups
+### How much of the country's electricity comes from renewables?
+
+```{r}
+filtered_data <- owid_energy |> 
+  select(year, country, matches("_electricity$"), -other_renewable_exc_biofuel_electricity, -other_renewable_electricity, -per_capita_electricity)
+colnames(filtered_data)
+```
+
+## Income Groups
 
 in the owid-energy dataset, in country column we have different income groups such as:
 
@@ -365,4 +407,130 @@ owid_energy |>
                         "Low-income countries", 
                         "High-income countries", 
                         "Lower-middle-income countries"))
+```
+
+```{r}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+  
+
+custom_colors <- c(
+  "biofuel" = "#ff7f00",
+  "coal" = "#1f78b4",
+  "fossil" = "#ffff99",
+  "gas" = "#e31a1c",
+  "hydro" = "#6a3d9a",
+  "low_carbon" = "#b2df8a",
+  "nuclear" = "#fdbf6f",
+  "oil" = "#cab2d6",
+  "solar" = "#a6cee3",
+  "wind" = "#fb9a99"
+)
+
+income_groups_data_2018 <- owid_energy |>
+  filter(year == 2018,
+         country %in% c("Upper-middle-income countries",
+                        "Low-income countries",
+                        "High-income countries",
+                        "Lower-middle-income countries")) |>
+  select(country, biofuel_electricity, coal_electricity, fossil_electricity, gas_electricity,
+         hydro_electricity, low_carbon_electricity, nuclear_electricity,
+         oil_electricity, solar_electricity, wind_electricity) |>
+  na.omit()
+
+income_groups_generation <- income_groups_data_2018 |>
+  group_by(country) |>
+  summarise(across(biofuel_electricity:wind_electricity, ~ sum(.x, na.rm = TRUE))) |>
+  pivot_longer(-country, names_to = "source", values_to = "generation")
+
+income_groups_generation$source <- str_replace(income_groups_generation$source, "_electricity", "")
+
+ggplot(income_groups_generation, aes(x = country, y = generation, fill = source)) +
+  geom_bar(stat = "identity", position = "stack") +
+  scale_fill_manual(values = custom_colors) +
+  labs(x = "Income Group",
+       y = "Electricity Generation (TWh)",
+       fill = "Source") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+
+```
+
+```{r}
+custom_palette <- c("#e6194b", "#3cb44b", "#ffe119", "#4363d8", "#f58231",
+                    "#911eb4", "#46f0f0", "#f032e6", "#bcf60c", "#fabebe",
+                    "#008080", "#e6beff")
+
+selected_palette <- brewer.pal(name = "Paired", n=12)
+
+total_generation <- income_groups_generation |> 
+  group_by(country) |> 
+  summarise(total_generation = sum(generation))
+
+dodge_width <- 0.9
+
+ggplot() +
+  geom_bar(data = income_groups_generation, 
+           aes(x = country, y = generation, fill = source), 
+           stat = "identity", 
+           position = position_dodge(width = dodge_width), 
+           width = dodge_width / 1.5) +
+  geom_bar(data = total_generation, 
+           aes(x = country, y = total_generation, group = country), 
+           stat = "identity", 
+           fill = "grey", alpha = 0.3, 
+           width = dodge_width) +
+  scale_fill_manual(values = selected_palette) +
+  coord_flip() +
+  labs(x = "Income Group", 
+       y = "Electricity Generation (TWh)", 
+       fill = "Source") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+asian_regions <- c("Asia", "South Africa", "Europe", 
+                   "Oceania", "South America", "North America")
+
+# Filter for the year 2018 and specific Asian regions
+asian_data_2018 <- owid_energy %>%
+  filter(year == 2018, country %in% asian_regions) %>%
+  select(country, oil_production, oil_consumption,
+         gas_production, gas_consumption,
+         coal_production, coal_consumption) %>%
+  na.omit()
+
+# Reshape data into long format
+asian_data_long <- asian_data_2018 %>%
+  pivot_longer(cols = -country, names_to = "type", values_to = "amount")
+
+# Plot a stacked bar plot
+ggplot(asian_data_long, aes(x = country, y = amount, fill = type)) +
+  geom_bar(stat = "identity", position = "stack") +
+  scale_fill_viridis_d() +
+  labs(x = "Region/Country", 
+       y = "Production and Consumption", 
+       fill = "Type") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) # Rotate x-axis labels
+
+```
+
+```{r}
+
+
 ```

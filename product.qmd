@@ -20,20 +20,99 @@ library(ggplot2)
 library(rnaturalearth)
 library(sf)
 library(countrycode)
+library(ggrepel)
 ```
 
 ## Dataset
 
--   explaining dataset
-
-## Plot1
-
 ```{r}
-1 + 1
+owid_energy <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2023/2023-06-06/owid-energy.csv')
 ```
 
-# Plot2
+-   explaining dataset
+
+## Emissions from electricity generation per capita vs. GDP per capita, 2018
 
 ```{r}
-# plot2
+highlight_countries <- c("United States", "China", "India", "Germany", "Qatar", 
+                         "United Arab Emirates", "Norway", "Luxembourg", 
+                         "Canada", "Iran", "Ethiopia", "Mozambique", "Russia")
+
+
+df <- owid_energy |> 
+  filter(year == 2018, country != "World") |> 
+  mutate(
+    gdp_per_capita = gdp / population,
+    greenhouse_gas_emissions_per_capita = greenhouse_gas_emissions / population,
+    highlight = ifelse(country %in% highlight_countries, TRUE, FALSE), 
+    label = ifelse(highlight, as.character(country), NA)  
+  ) |> 
+  drop_na(gdp_per_capita, greenhouse_gas_emissions_per_capita) |> 
+  mutate(
+    continent = countrycode(country, "country.name", "continent")
+  ) |> 
+  drop_na(continent) 
+
+
+custom_colors <- c("Asia" = "#1f78b4", "Africa" = "#33a02c", "Europe" = "#e31a1c", 
+                   "Americas" = "#ff7f00", "Oceania" = "#6a3d9a")
+
+
+ggplot(df, aes(x = gdp_per_capita, y = greenhouse_gas_emissions_per_capita, size = population)) +
+  geom_point(aes(color = continent), alpha = 0.3) + 
+  geom_point(data = df %>% filter(highlight), aes(color = continent), alpha = 0.7) +  
+  geom_text_repel(
+    aes(label = label, color = continent),
+    size = 3.5,
+    box.padding = unit(0.35, "lines"),
+    point.padding = unit(0.5, "lines"),
+    segment.color = "white"
+  ) +
+  scale_size_continuous(range = c(1, 15)) +
+  scale_color_manual(values = custom_colors) +
+  scale_x_log10() +
+  theme_minimal() +
+  labs(
+    x = "GDP per capita (international $)",
+    y = "Emissions per capita (tonnes)",
+    size = "Population",
+    color = "Continent"
+  ) +
+  theme(legend.position = "right") +
+  guides(color = guide_legend(override.aes = list(alpha = 1))) 
+```
+
+### How much of the country's electricity comes from renewables?
+
+```{r}
+custom_palette <- c("#e6194b", "#3cb44b", "#ffe119", "#4363d8", "#f58231",
+                    "#911eb4", "#46f0f0", "#f032e6", "#bcf60c", "#fabebe",
+                    "#008080", "#e6beff")
+
+selected_palette <- brewer.pal(name = "Paired", n=12)
+
+total_generation <- income_groups_generation |> 
+  group_by(country) |> 
+  summarise(total_generation = sum(generation))
+
+dodge_width <- 0.9
+
+ggplot() +
+  geom_bar(data = income_groups_generation, 
+           aes(x = country, y = generation, fill = source), 
+           stat = "identity", 
+           position = position_dodge(width = dodge_width), 
+           width = dodge_width / 1.5) +
+  geom_bar(data = total_generation, 
+           aes(x = country, y = total_generation, group = country), 
+           stat = "identity", 
+           fill = "grey", alpha = 0.3, 
+           width = dodge_width) +
+  scale_fill_manual(values = selected_palette) +
+  coord_flip() +
+  labs(x = "Income Group", 
+       y = "Electricity Generation (TWh)", 
+       fill = "Source") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
