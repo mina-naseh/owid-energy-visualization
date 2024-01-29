@@ -109,6 +109,25 @@ owid_energy |>
 
 ```{r}
 owid_energy |> 
+  filter(country == "Iran") |> 
+  mutate(
+    gdp_per_capita = gdp / population,
+    greenhouse_gas_emissions_per_capita = greenhouse_gas_emissions / population
+  ) |> 
+  drop_na(gdp_per_capita, greenhouse_gas_emissions_per_capita) |> 
+  ggplot(aes(x = gdp_per_capita, y = greenhouse_gas_emissions_per_capita, color = year)) +
+  geom_point() + 
+  labs(
+    title = "Greenhouse Gas Emissions vs GDP Per Capita for Iran",
+    x = "GDP Per Capita",
+    y = "Greenhouse Gas Emissions Per Capita"
+  ) +
+  theme_minimal()
+
+```
+
+```{r}
+owid_energy |> 
   filter(country == "Russia") |> 
   drop_na(gdp, greenhouse_gas_emissions) |> 
   ggplot() + 
@@ -116,6 +135,25 @@ owid_energy |>
   geom_point() + 
   labs(title = "greenhouse gas emissions vs gdp for Russia") +
   theme_minimal()
+```
+
+```{r}
+countries_of_interest <- c("China", "United States", "Russia", "Iran", "Germany", "United Arab Emirates")
+
+owid_energy |> 
+  filter(country %in% countries_of_interest) |> 
+  drop_na(gdp, greenhouse_gas_emissions) |> 
+  ggplot(aes(x = gdp, y = greenhouse_gas_emissions, color = year)) +
+  geom_point() + 
+  labs(
+    x = "GDP (trillions$)",
+    y = "Greenhouse Gas Emissions"
+  ) +
+  facet_wrap(~ country, scales = "free") + 
+  theme_minimal() +
+  theme(legend.position = "bottom") +
+  scale_x_continuous(labels = scales::label_number(scale = 1e-12, suffix = "T"))
+
 ```
 
 ```{r}
@@ -156,7 +194,6 @@ ggplot(df, aes(x = gdp_per_capita, y = greenhouse_gas_emissions_per_capita, size
 ```
 
 ```{r}
-
 highlight_countries <- c("United States", "China", "India", "Germany", "Qatar", 
                          "United Arab Emirates", "Norway", "Luxembourg", 
                          "Canada", "Iran", "Ethiopia", "Mozambique", "Russia")
@@ -185,11 +222,9 @@ ggplot(df, aes(x = gdp_per_capita, y = greenhouse_gas_emissions_per_capita, size
   geom_point(aes(color = continent), alpha = 0.3) + 
   geom_point(data = df %>% filter(highlight), aes(color = continent), alpha = 0.7) +  
   geom_text_repel(
+    data = filter(df, !is.na(label)),  
     aes(label = label, color = continent),
-    size = 3.5,
-    box.padding = unit(0.35, "lines"),
-    point.padding = unit(0.5, "lines"),
-    segment.color = "white"
+    size = 4
   ) +
   scale_size_continuous(range = c(1, 15)) +
   scale_color_manual(values = custom_colors) +
@@ -198,11 +233,13 @@ ggplot(df, aes(x = gdp_per_capita, y = greenhouse_gas_emissions_per_capita, size
   labs(
     x = "GDP per capita (international $)",
     y = "Emissions per capita (tonnes)",
-    size = "Population",
     color = "Continent"
   ) +
   theme(legend.position = "right") +
-  guides(color = guide_legend(override.aes = list(alpha = 1))) 
+  guides(
+    color = guide_legend(override.aes = list(alpha = 1)),
+    size = FALSE
+  )
 
 ```
 
@@ -485,40 +522,31 @@ ggplot() +
            width = dodge_width) +
   scale_fill_manual(values = selected_palette) +
   coord_flip() +
-  labs(x = "Income Group", 
-       y = "Electricity Generation (TWh)", 
-       fill = "Source") +
+  labs(y = "Electricity Generation (TWh)", 
+       fill = "Source",
+       x = NULL) +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 ```
 
-```{r}
-
-```
-
-```{r}
-
-```
+## Continents
 
 ```{r}
 
 asian_regions <- c("Asia", "South Africa", "Europe", 
                    "Oceania", "South America", "North America")
 
-# Filter for the year 2018 and specific Asian regions
-asian_data_2018 <- owid_energy %>%
-  filter(year == 2018, country %in% asian_regions) %>%
+asian_data_2018 <- owid_energy |> 
+  filter(year == 2018, country %in% asian_regions) |> 
   select(country, oil_production, oil_consumption,
          gas_production, gas_consumption,
-         coal_production, coal_consumption) %>%
+         coal_production, coal_consumption) |> 
   na.omit()
 
-# Reshape data into long format
-asian_data_long <- asian_data_2018 %>%
+asian_data_long <- asian_data_2018 |> 
   pivot_longer(cols = -country, names_to = "type", values_to = "amount")
 
-# Plot a stacked bar plot
 ggplot(asian_data_long, aes(x = country, y = amount, fill = type)) +
   geom_bar(stat = "identity", position = "stack") +
   scale_fill_viridis_d() +
@@ -526,11 +554,141 @@ ggplot(asian_data_long, aes(x = country, y = amount, fill = type)) +
        y = "Production and Consumption", 
        fill = "Type") +
   theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) # Rotate x-axis labels
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+Trend of Primary Energy Consumption by Continent
+
+```{r}
+energy_trend <- owid_energy |> 
+  filter(country %in% c("Asia", "South Africa", "Europe", "Oceania", "South America", "North America") & year>=1965)  |> 
+  group_by(country, year) |> 
+  summarise(total_primary_energy = sum(primary_energy_consumption, na.rm = TRUE), .groups = "drop")
+
+ggplot(energy_trend, aes(x = year, y = total_primary_energy, group = country, color = country)) +
+  geom_line() +
+  geom_point() +
+  labs(
+    x = NULL,
+    y = "Primary Energy Consumption (TWh)", 
+    color = "Continent"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+
+```
+
+list of primary energies: biofuel_consumption, coal_consumption, fossil_fuel_consumption, gas_consumption, hydro_consumption, low_carbon_consumption, nuclear_consumption, oil_consumption, solar_consumption, wind_consumption
+
+Trend of Primary Energy Consumption by Type in Asia
+
+```{r}
+
+asia_energy_trend <- owid_energy |> 
+  filter(country == "Asia" & year >= 1965) |> 
+  select(year, biofuel_consumption, coal_consumption, fossil_fuel_consumption, 
+         gas_consumption, hydro_consumption, low_carbon_consumption, 
+         nuclear_consumption, oil_consumption, solar_consumption) |> 
+  pivot_longer(
+    cols = -year, 
+    names_to = "energy_type", 
+    values_to = "consumption"
+  ) |> 
+  mutate(energy_type = sub("_consumption", "", energy_type)) |> 
+  group_by(year, energy_type) |> 
+  summarise(total_consumption = sum(consumption, na.rm = TRUE), .groups = "drop")
+
+ggplot(asia_energy_trend, aes(x = year, y = total_consumption, color = energy_type)) +
+  geom_line() +
+  geom_point() +
+  labs(
+    x = NULL,
+    y = "Energy Consumption (TWh)",
+    color = "Energy Type"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+
+
+```
+
+### boxplots
+
+```{r}
+selected_countries <- c("United States", "China", "Iran", "India", "Saudi Arabia", "Russia", "Japan")
+
+energy_boxplot_data <- owid_energy |> 
+  filter(country %in% selected_countries, year >= 1960, year <= 2018, fossil_fuel_consumption > 0) |> 
+  select(country, year, fossil_fuel_consumption) |> 
+  na.omit()
+
+ggplot(energy_boxplot_data, aes(x = country, y = fossil_fuel_consumption, fill = country)) +
+  geom_violin(trim = FALSE) + 
+  geom_jitter(width = 0.3, size = 0.8, alpha = 0.5) +
+  labs(title = "Distribution of Fossil Fuel Consumption across Countries (1980-2018)",
+       x = "Country",
+       y = "Fossil Fuel Consumption (TWh)") +
+  scale_fill_brewer(palette = "Spectral") +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+```{r}
+
+selected_countries <- c("United States", "China", "Germany", "India", "Russia")
+
+energy_boxplot_data <- owid_energy |> 
+  filter(country %in% selected_countries, year >= 1960, year <= 2018) |> 
+  select(country, year, fossil_fuel_consumption) |> 
+  na.omit()
+
+ggplot(energy_boxplot_data, aes(x = country, y = fossil_fuel_consumption)) +
+  geom_boxplot() +
+  labs(title = "Distribution of Coal Consumption across Countries (2000-2018)",
+       x = "Country",
+       y = "Coal Consumption (TWh)") +
+  theme_minimal()
 
 ```
 
 ```{r}
+
+p <- ggplot(energy_boxplot_data, aes(x = country, y = fossil_fuel_consumption, fill = country)) +
+  geom_violin(trim = FALSE) + 
+  geom_jitter(width = 0.2, size = 0.6, alpha = 0.4) + 
+  labs(title = "Distribution of Fossil Fuel Consumption across Countries (1980-2018)",
+       x = "Country",
+       y = "Fossil Fuel Consumption (TWh)") +
+  scale_fill_brewer(palette = "Set3") +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+p_interactive <- ggplotly(p)
+
+p_interactive
+
+```
+
+Distribution of Fossil Fuel Consumption across Countries (1980-2018)
+
+```{r}
+
+selected_countries <- c("United States", "China", "Iran", "India", "Saudi Arabia", "Russia", "Japan")
+
+energy_boxplot_data <- owid_energy |> 
+  filter(country %in% selected_countries, year >= 1980, year <= 2018, fossil_fuel_consumption > 0) |> 
+  select(country, year, fossil_fuel_consumption) |> 
+  na.omit()
+
+ggplot(energy_boxplot_data, aes(x = country, y = fossil_fuel_consumption, fill = country)) +
+  geom_boxplot() + 
+  labs(
+       x = NULL,
+       y = "Fossil Fuel Consumption (TWh)") +
+  scale_fill_brewer(palette = "Spectral") +
+  theme_minimal() +
+  theme(legend.position = "none")
 
 
 ```

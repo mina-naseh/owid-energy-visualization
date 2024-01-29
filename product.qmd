@@ -1,8 +1,13 @@
 ---
-title: "owid energy visualization"
+title: "owid energy data visualization"
 author: "Mina Naseh"
 institute: "University of Luxembourg"
-format: revealjs
+format: 
+  revealjs:
+    theme: "night"
+    center: true
+    transition: fade
+    background_transition: slide
 editor: visual
 ---
 
@@ -20,7 +25,9 @@ library(ggplot2)
 library(rnaturalearth)
 library(sf)
 library(countrycode)
+library(RColorBrewer)
 library(ggrepel)
+library(stringr)
 ```
 
 ## Dataset
@@ -29,9 +36,36 @@ library(ggrepel)
 owid_energy <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2023/2023-06-06/owid-energy.csv')
 ```
 
--   explaining dataset
+-   This Energy dataset is a collection of key metrics maintained by "Our World in Data".
+-   It includes 21890 observations with 129 variables.
+-   In the country column, we have individual countries (like Afghanistan, Albania, Algeria, etc.), regions (such as Africa, Asia, Europe), specific groupings or categories (like OECD, OPEC, High-income countries.
+-   In the columns we have variables related to different types of energy such as biofuel, coal, electricity, primary energy, fossil fuel, gas, hydropower, solar power, nuclear power, oil, ... .
 
-## Emissions from electricity generation per capita vs. GDP per capita, 2018
+## Emissions vs. GDP
+
+Is there a relationship between Emissions from electricity generation and GDP?
+
+```{r}
+countries_of_interest <- c("China", "United States", "Russia", "Iran", "Germany", "United Arab Emirates")
+
+owid_energy |> 
+  filter(country %in% countries_of_interest) |> 
+  drop_na(gdp, greenhouse_gas_emissions) |> 
+  ggplot(aes(x = gdp, y = greenhouse_gas_emissions, color = year)) +
+  geom_point() + 
+  labs(
+    x = "GDP (trillions$)",
+    y = "Greenhouse Gas Emissions (megatonnes)"
+  ) +
+  facet_wrap(~ country, scales = "free") + 
+  theme_minimal() +
+  theme(legend.position = "bottom") +
+  scale_x_continuous(labels = scales::label_number(scale = 1e-12, suffix = "T"))
+```
+
+## Emissions vs. GDP
+
+Emissions from electricity generation per capita vs. GDP per capita, 2018
 
 ```{r}
 highlight_countries <- c("United States", "China", "India", "Germany", "Qatar", 
@@ -62,11 +96,9 @@ ggplot(df, aes(x = gdp_per_capita, y = greenhouse_gas_emissions_per_capita, size
   geom_point(aes(color = continent), alpha = 0.3) + 
   geom_point(data = df %>% filter(highlight), aes(color = continent), alpha = 0.7) +  
   geom_text_repel(
+    data = filter(df, !is.na(label)),  
     aes(label = label, color = continent),
-    size = 3.5,
-    box.padding = unit(0.35, "lines"),
-    point.padding = unit(0.5, "lines"),
-    segment.color = "white"
+    size = 4
   ) +
   scale_size_continuous(range = c(1, 15)) +
   scale_color_manual(values = custom_colors) +
@@ -75,14 +107,19 @@ ggplot(df, aes(x = gdp_per_capita, y = greenhouse_gas_emissions_per_capita, size
   labs(
     x = "GDP per capita (international $)",
     y = "Emissions per capita (tonnes)",
-    size = "Population",
     color = "Continent"
   ) +
   theme(legend.position = "right") +
-  guides(color = guide_legend(override.aes = list(alpha = 1))) 
+  guides(
+    color = guide_legend(override.aes = list(alpha = 1)),
+    size = FALSE
+  )
+
 ```
 
-### How much of the country's electricity comes from renewables?
+## Source of Electricity
+
+How much of the country's electricity comes from renewables in 2018?
 
 ```{r}
 custom_palette <- c("#e6194b", "#3cb44b", "#ffe119", "#4363d8", "#f58231",
@@ -90,6 +127,24 @@ custom_palette <- c("#e6194b", "#3cb44b", "#ffe119", "#4363d8", "#f58231",
                     "#008080", "#e6beff")
 
 selected_palette <- brewer.pal(name = "Paired", n=12)
+
+income_groups_data_2018 <- owid_energy |>
+  filter(year == 2018,
+         country %in% c("Upper-middle-income countries",
+                        "Low-income countries",
+                        "High-income countries",
+                        "Lower-middle-income countries")) |>
+  select(country, biofuel_electricity, coal_electricity, fossil_electricity, gas_electricity,
+         hydro_electricity, low_carbon_electricity, nuclear_electricity,
+         oil_electricity, solar_electricity, wind_electricity) |>
+  na.omit()
+
+income_groups_generation <- income_groups_data_2018 |>
+  group_by(country) |>
+  summarise(across(biofuel_electricity:wind_electricity, ~ sum(.x, na.rm = TRUE))) |>
+  pivot_longer(-country, names_to = "source", values_to = "generation")
+
+income_groups_generation$source <- str_replace(income_groups_generation$source, "_electricity", "")
 
 total_generation <- income_groups_generation |> 
   group_by(country) |> 
@@ -110,9 +165,89 @@ ggplot() +
            width = dodge_width) +
   scale_fill_manual(values = selected_palette) +
   coord_flip() +
-  labs(x = "Income Group", 
+  labs(x = NULL,
        y = "Electricity Generation (TWh)", 
        fill = "Source") +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+## Primary Energy
+
+Primary energy is the energy found in nature that has not been subjected to any human engineered conversion process. It encompasses energy contained in raw fuels and other forms of energy, including waste, received as input to a system. Primary energy can be non-renewable or renewable. [Wikipedia](https://en.wikipedia.org/wiki/Primary_energy)
+
+## Primary Energy Consumption
+
+Trend of Primary Energy Consumption by Continent
+
+```{r}
+energy_trend <- owid_energy |> 
+  filter(country %in% c("Asia", "South Africa", "Europe", "Oceania", "South America", "North America") & year>=1965)  |> 
+  group_by(country, year) |> 
+  summarise(total_primary_energy = sum(primary_energy_consumption, na.rm = TRUE), .groups = "drop")
+
+ggplot(energy_trend, aes(x = year, y = total_primary_energy, group = country, color = country)) +
+  geom_line() +
+  geom_point() +
+  labs(
+    x = NULL,
+    y = "Primary Energy Consumption (TWh)", 
+    color = "Continent"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+
+```
+
+## Primary Energy Consumption
+
+Trend of Primary Energy Consumption by Type in Asia
+
+```{r}
+asia_energy_trend <- owid_energy |> 
+  filter(country == "Asia" & year >= 1965) |> 
+  select(year, biofuel_consumption, coal_consumption, fossil_fuel_consumption, 
+         gas_consumption, hydro_consumption, low_carbon_consumption, 
+         nuclear_consumption, oil_consumption, solar_consumption) |> 
+  pivot_longer(
+    cols = -year, 
+    names_to = "energy_type", 
+    values_to = "consumption"
+  ) |> 
+  mutate(energy_type = sub("_consumption", "", energy_type)) |> 
+  group_by(year, energy_type) |> 
+  summarise(total_consumption = sum(consumption, na.rm = TRUE), .groups = "drop")
+
+ggplot(asia_energy_trend, aes(x = year, y = total_consumption, color = energy_type)) +
+  geom_line() +
+  geom_point() +
+  labs(
+    x = NULL,
+    y = "Energy Consumption (TWh)",
+    color = "Energy Type"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+```
+
+## Fossil Fuel Consumption
+
+Distribution of Fossil Fuel Consumption across Countries (1980-2018)
+
+```{r}
+selected_countries <- c("United States", "China", "Iran", "India", "Saudi Arabia", "Russia", "Japan")
+
+energy_boxplot_data <- owid_energy |> 
+  filter(country %in% selected_countries, year >= 1980, year <= 2018, fossil_fuel_consumption > 0) |> 
+  select(country, year, fossil_fuel_consumption) |> 
+  na.omit()
+
+ggplot(energy_boxplot_data, aes(x = country, y = fossil_fuel_consumption, fill = country)) +
+  geom_boxplot() + 
+  labs(
+       x = NULL,
+       y = "Fossil Fuel Consumption (TWh)") +
+  scale_fill_brewer(palette = "Spectral") +
+  theme_minimal() +
+  theme(legend.position = "none")
 ```
