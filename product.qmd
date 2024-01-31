@@ -38,8 +38,8 @@ owid_energy <- readr::read_csv('https://raw.githubusercontent.com/rfordatascienc
 
 -   This Energy dataset is a collection of key metrics maintained by "Our World in Data".
 -   It includes 21890 observations with 129 variables.
--   In the country column, we have individual countries (like Afghanistan, Albania, Algeria, etc.), regions (such as Africa, Asia, Europe), specific groupings or categories (like OECD, OPEC, High-income countries.
--   In the columns we have variables related to different types of energy such as biofuel, coal, electricity, primary energy, fossil fuel, gas, hydropower, solar power, nuclear power, oil, ... .
+-   In the country column, we have individual countries (like Afghanistan, Albania, Algeria, etc.), regions (such as Africa, Asia, Europe), and specific groupings or categories (like OECD, OPEC, High-income countries).
+-   In the columns, we have variables related to different types of energy such as biofuel, coal, electricity, primary energy, fossil fuel, gas, hydropower, solar power, nuclear power, oil, ... .
 
 ## Emissions vs. GDP
 
