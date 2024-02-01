@@ -257,7 +257,8 @@ ggplot(df, aes(x = gdp_per_capita, y = greenhouse_gas_emissions_per_capita, size
     y = "Emissions per capita (tonnes)",
     color = "Continent"
   ) +
-  theme(legend.position = "right") +
+  # theme(legend.position = "right") +
+  theme(legend.position = c(0.1, 0.75)) +
   guides(
     color = guide_legend(override.aes = list(alpha = 1)),
     size = "none"
