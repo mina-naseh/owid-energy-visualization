@@ -48,14 +48,15 @@ Is there a relationship between Emissions from electricity generation and GDP?
 ```{r}
 countries_of_interest <- c("China", "United States", "Russia", "Iran", "Germany", "United Arab Emirates")
 
-owid_energy |> 
-  filter(country %in% countries_of_interest) |> 
-  drop_na(gdp, greenhouse_gas_emissions) |> 
-  ggplot(aes(x = gdp, y = greenhouse_gas_emissions, color = year)) +
-  geom_point() + 
+owid_energy_line <- owid_energy |> 
+  filter(country %in% countries_of_interest, !is.na(gdp), !is.na(greenhouse_gas_emissions))
+
+ggplot(owid_energy_line, aes(x = gdp, y = greenhouse_gas_emissions, group = country, color = year)) +
+  geom_line() + 
+  geom_point() +
   labs(
     x = "GDP (trillions$)",
-    y = "Greenhouse Gas Emissions (megatonnes)"
+    y = "Greenhouse Gas Emissions"
   ) +
   facet_wrap(~ country, scales = "free") + 
   theme_minimal() +
@@ -122,11 +123,24 @@ ggplot(df, aes(x = gdp_per_capita, y = greenhouse_gas_emissions_per_capita, size
 How much of the country's electricity comes from renewables in 2018?
 
 ```{r}
-custom_palette <- c("#e6194b", "#3cb44b", "#ffe119", "#4363d8", "#f58231",
-                    "#911eb4", "#46f0f0", "#f032e6", "#bcf60c", "#fabebe",
-                    "#008080", "#e6beff")
+# custom_palette <- c("#e6194b", "#3cb44b", "#ffe119", "#4363d8", "#f58231",
+#                     "#911eb4", "#46f0f0", "#f032e6", "#bcf60c", "#fabebe",
+#                     "#008080", "#e6beff")
 
-selected_palette <- brewer.pal(name = "Paired", n=12)
+# selected_palette <- brewer.pal(name = "Paired", n=12)
+
+custom_palette <- c(
+  "biofuel" = "#9ACD32",      # YellowGreen
+  "coal" = "#696969",         # DimGray
+  "fossil" = "brown",       
+  "gas" = "skyblue",          
+  "hydro" = "#1E90FF",        # DodgerBlue
+  "low_carbon" = "#2E8B57",   # SeaGreen
+  "nuclear" = "purple",      # BlueViolet
+  "oil" = "#D2691E",          # Chocolate
+  "solar" = "#FFD700",        # Orange
+  "wind" = "#00CED1"          # DarkTurquoise
+)
 
 income_groups_data_2018 <- owid_energy |>
   filter(year == 2018,
@@ -163,7 +177,64 @@ ggplot() +
            stat = "identity", 
            fill = "grey", alpha = 0.3, 
            width = dodge_width) +
-  scale_fill_manual(values = selected_palette) +
+  scale_fill_manual(values = custom_palette) +
+  coord_flip() +
+  labs(x = NULL,
+       y = "Electricity Generation (TWh)", 
+       fill = "Source") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+## Source of Electricity
+
+Let's take a closer look:
+
+```{r}
+custom_palette <- c(
+  "biofuel" = "#9ACD32",      # YellowGreen
+  "coal" = "#696969",         # DimGray
+  "fossil" = "brown",       
+  "gas" = "skyblue",          
+  "hydro" = "#1E90FF",        # DodgerBlue
+  "low_carbon" = "#2E8B57",   # SeaGreen
+  "nuclear" = "purple",      # BlueViolet
+  "oil" = "#D2691E",          # Chocolate
+  "solar" = "#FFD700",        # Orange
+  "wind" = "#00CED1"          # DarkTurquoise
+)
+
+income_groups_data_2018 <- owid_energy |>
+  filter(year == 2018,
+         country %in% c("Upper-middle-income countries",
+                        "Low-income countries",
+                        "High-income countries",
+                        "Lower-middle-income countries")) |>
+  select(country, biofuel_electricity, coal_electricity, fossil_electricity, gas_electricity,
+         hydro_electricity, low_carbon_electricity, nuclear_electricity,
+         oil_electricity, solar_electricity, wind_electricity) |>
+  na.omit()
+
+income_groups_generation <- income_groups_data_2018 |>
+  group_by(country) |>
+  summarise(across(biofuel_electricity:wind_electricity, ~ sum(.x, na.rm = TRUE))) |>
+  pivot_longer(-country, names_to = "source", values_to = "generation")
+
+income_groups_generation$source <- str_replace(income_groups_generation$source, "_electricity", "")
+
+total_generation <- income_groups_generation |> 
+  group_by(country) |> 
+  summarise(total_generation = sum(generation))
+
+dodge_width <- 0.9
+
+ggplot() +
+  geom_bar(data = income_groups_generation, 
+           aes(x = country, y = generation, fill = source), 
+           stat = "identity", 
+           position = position_dodge(width = dodge_width), 
+           width = dodge_width / 1.5) +
+  scale_fill_manual(values = custom_palette) +
   coord_flip() +
   labs(x = NULL,
        y = "Electricity Generation (TWh)", 

@@ -48,10 +48,10 @@ There is a codebook explaining every column:
 For the final product, a final dataset will be chosen and downloaded in the product for the user.
 
 ```{r}
-# owid_energy <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2023/2023-06-06/owid-energy.csv')
-owid_energy <- read_csv("data/owid-energy.csv")
-owid_energy_data <- read_csv("data/owid-energy-data.csv")
-stat_data <- read_csv("data/Statistical Review of World Energy Narrow File.csv")
+owid_energy <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2023/2023-06-06/owid-energy.csv')
+# owid_energy <- read_csv("data/owid-energy.csv")
+# owid_energy_data <- read_csv("data/owid-energy-data.csv")
+# stat_data <- read_csv("data/Statistical Review of World Energy Narrow File.csv")
 ```
 
 ```{r}
@@ -157,6 +157,26 @@ owid_energy |>
 ```
 
 ```{r}
+countries_of_interest <- c("China", "United States", "Russia", "Iran", "Germany", "United Arab Emirates")
+
+owid_energy_line <- owid_energy |> 
+  filter(country %in% countries_of_interest, !is.na(gdp), !is.na(greenhouse_gas_emissions))
+
+ggplot(owid_energy_line, aes(x = gdp, y = greenhouse_gas_emissions, group = country, color = year)) +
+  geom_line() + 
+  geom_point() +
+  labs(
+    x = "GDP (trillions$)",
+    y = "Greenhouse Gas Emissions"
+  ) +
+  facet_wrap(~ country, scales = "free") + 
+  theme_minimal() +
+  theme(legend.position = "bottom") +
+  scale_x_continuous(labels = scales::label_number(scale = 1e-12, suffix = "T"))
+
+```
+
+```{r}
 df <- owid_energy |> 
   filter(year == "2018" & country != "World") |> 
   mutate(
@@ -238,7 +258,7 @@ ggplot(df, aes(x = gdp_per_capita, y = greenhouse_gas_emissions_per_capita, size
   theme(legend.position = "right") +
   guides(
     color = guide_legend(override.aes = list(alpha = 1)),
-    size = FALSE
+    size = "none"
   )
 
 ```
@@ -447,11 +467,6 @@ owid_energy |>
 ```
 
 ```{r}
-library(dplyr)
-library(tidyr)
-library(ggplot2)
-  
-
 custom_colors <- c(
   "biofuel" = "#ff7f00",
   "coal" = "#1f78b4",
@@ -492,16 +507,45 @@ ggplot(income_groups_generation, aes(x = country, y = generation, fill = source)
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
-
-
 ```
 
 ```{r}
-custom_palette <- c("#e6194b", "#3cb44b", "#ffe119", "#4363d8", "#f58231",
-                    "#911eb4", "#46f0f0", "#f032e6", "#bcf60c", "#fabebe",
-                    "#008080", "#e6beff")
+# custom_palette <- c("#e6194b", "#3cb44b", "#ffe119", "#4363d8", "#f58231",
+#                     "#911eb4", "#46f0f0", "#f032e6", "#bcf60c", "#fabebe",
+#                     "#008080", "#e6beff")
 
-selected_palette <- brewer.pal(name = "Paired", n=12)
+# selected_palette <- brewer.pal(name = "Paired", n=12)
+
+custom_palette <- c(
+  "biofuel" = "#9ACD32",      # YellowGreen
+  "coal" = "#696969",         # DimGray
+  "fossil" = "brown",       
+  "gas" = "skyblue",          
+  "hydro" = "#1E90FF",        # DodgerBlue
+  "low_carbon" = "#2E8B57",   # SeaGreen
+  "nuclear" = "purple",      # BlueViolet
+  "oil" = "#D2691E",          # Chocolate
+  "solar" = "#FFD700",        # Orange
+  "wind" = "#00CED1"          # DarkTurquoise
+)
+
+income_groups_data_2018 <- owid_energy |>
+  filter(year == 2018,
+         country %in% c("Upper-middle-income countries",
+                        "Low-income countries",
+                        "High-income countries",
+                        "Lower-middle-income countries")) |>
+  select(country, biofuel_electricity, coal_electricity, fossil_electricity, gas_electricity,
+         hydro_electricity, low_carbon_electricity, nuclear_electricity,
+         oil_electricity, solar_electricity, wind_electricity) |>
+  na.omit()
+
+income_groups_generation <- income_groups_data_2018 |>
+  group_by(country) |>
+  summarise(across(biofuel_electricity:wind_electricity, ~ sum(.x, na.rm = TRUE))) |>
+  pivot_longer(-country, names_to = "source", values_to = "generation")
+
+income_groups_generation$source <- str_replace(income_groups_generation$source, "_electricity", "")
 
 total_generation <- income_groups_generation |> 
   group_by(country) |> 
@@ -520,14 +564,67 @@ ggplot() +
            stat = "identity", 
            fill = "grey", alpha = 0.3, 
            width = dodge_width) +
-  scale_fill_manual(values = selected_palette) +
+  scale_fill_manual(values = custom_palette) +
   coord_flip() +
-  labs(y = "Electricity Generation (TWh)", 
-       fill = "Source",
-       x = NULL) +
+  labs(x = NULL,
+       y = "Electricity Generation (TWh)", 
+       fill = "Source") +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
 
+```{r}
+
+custom_palette <- c(
+  "biofuel" = "#9ACD32",      # YellowGreen
+  "coal" = "#696969",         # DimGray
+  "fossil" = "brown",       
+  "gas" = "skyblue",          
+  "hydro" = "#1E90FF",        # DodgerBlue
+  "low_carbon" = "#2E8B57",   # SeaGreen
+  "nuclear" = "purple",      # BlueViolet
+  "oil" = "#D2691E",          # Chocolate
+  "solar" = "#FFD700",        # Orange
+  "wind" = "#00CED1"          # DarkTurquoise
+)
+
+income_groups_data_2018 <- owid_energy |>
+  filter(year == 2018,
+         country %in% c("Upper-middle-income countries",
+                        "Low-income countries",
+                        "High-income countries",
+                        "Lower-middle-income countries")) |>
+  select(country, biofuel_electricity, coal_electricity, fossil_electricity, gas_electricity,
+         hydro_electricity, low_carbon_electricity, nuclear_electricity,
+         oil_electricity, solar_electricity, wind_electricity) |>
+  na.omit()
+
+income_groups_generation <- income_groups_data_2018 |>
+  group_by(country) |>
+  summarise(across(biofuel_electricity:wind_electricity, ~ sum(.x, na.rm = TRUE))) |>
+  pivot_longer(-country, names_to = "source", values_to = "generation")
+
+income_groups_generation$source <- str_replace(income_groups_generation$source, "_electricity", "")
+
+total_generation <- income_groups_generation |> 
+  group_by(country) |> 
+  summarise(total_generation = sum(generation))
+
+dodge_width <- 0.9
+
+ggplot() +
+  geom_bar(data = income_groups_generation, 
+           aes(x = country, y = generation, fill = source), 
+           stat = "identity", 
+           position = position_dodge(width = dodge_width), 
+           width = dodge_width / 1.5) +
+  scale_fill_manual(values = custom_palette) +
+  coord_flip() +
+  labs(x = NULL,
+       y = "Electricity Generation (TWh)", 
+       fill = "Source") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
 
 ## Continents
