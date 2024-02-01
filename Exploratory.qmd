@@ -29,6 +29,7 @@ library(countrycode)
 library(RColorBrewer)
 library(ggrepel)
 library(stringr)
+library(scales)
 ```
 
 ## Loading Data
@@ -248,7 +249,8 @@ ggplot(df, aes(x = gdp_per_capita, y = greenhouse_gas_emissions_per_capita, size
   ) +
   scale_size_continuous(range = c(1, 15)) +
   scale_color_manual(values = custom_colors) +
-  scale_x_log10() +
+  scale_x_log10(labels = trans_format("log10", math_format(10^.x))) +
+
   theme_minimal() +
   labs(
     x = "GDP per capita (international $)",
