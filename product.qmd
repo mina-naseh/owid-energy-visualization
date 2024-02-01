@@ -254,21 +254,36 @@ Primary energy is the energy found in nature that has not been subjected to any 
 Trend of Primary Energy Consumption by Continent
 
 ```{r}
-energy_trend <- owid_energy |> 
-  filter(country %in% c("Asia", "South Africa", "Europe", "Oceania", "South America", "North America") & year>=1965)  |> 
-  group_by(country, year) |> 
-  summarise(total_primary_energy = sum(primary_energy_consumption, na.rm = TRUE), .groups = "drop")
+custom_colors <- c("Asia" = "#1f78b4", "Africa" = "#33a02c", "Europe" = "#e31a1c", 
+                   "North America" = "#ff7f00", "South America" = "orange", "Oceania" = "#6a3d9a")
 
-ggplot(energy_trend, aes(x = year, y = total_primary_energy, group = country, color = country)) +
+energy_trend <- owid_energy |>
+  filter(country %in% c("Asia", "Africa", "Europe", "Oceania", "South America", "North America") & year >= 1965)
+
+label_positions <- energy_trend |> 
+  group_by(country) |> 
+  filter(year == max(year)) |> 
+  ungroup()
+
+ggplot(energy_trend, aes(x = year, y = primary_energy_consumption, group = country, color = country)) +
   geom_line() +
   geom_point() +
+  scale_color_manual(values = custom_colors) +
+  geom_text_repel(
+    data = label_positions, 
+    aes(label = country), 
+    nudge_x = 6, 
+    direction = "y", 
+    hjust = 1, vjust = 1,
+    size = 4
+  ) +
   labs(
-    x = NULL,
-    y = "Primary Energy Consumption (TWh)", 
+    x = "Year",
+    y = "Primary Energy Consumption (TWh)",
     color = "Continent"
   ) +
   theme_minimal() +
-  theme(legend.position = "bottom")
+  theme(legend.position = "none")
 
 ```
 
@@ -281,26 +296,50 @@ asia_energy_trend <- owid_energy |>
   filter(country == "Asia" & year >= 1965) |> 
   select(year, biofuel_consumption, coal_consumption, fossil_fuel_consumption, 
          gas_consumption, hydro_consumption, low_carbon_consumption, 
-         nuclear_consumption, oil_consumption, solar_consumption) |> 
-  pivot_longer(
-    cols = -year, 
-    names_to = "energy_type", 
-    values_to = "consumption"
+         nuclear_consumption, oil_consumption, solar_consumption, wind_consumption) |> 
+  pivot_longer(cols = -year, names_to = "energy_type", values_to = "consumption") |> 
+  mutate(
+    energy_type = sub("_consumption", "", energy_type),
+    energy_type = case_when(
+      energy_type %in% c("biofuel", "hydro", "low_carbon", "nuclear", "solar", "wind") ~ "renewables",
+      TRUE ~ energy_type
+    )
   ) |> 
-  mutate(energy_type = sub("_consumption", "", energy_type)) |> 
   group_by(year, energy_type) |> 
   summarise(total_consumption = sum(consumption, na.rm = TRUE), .groups = "drop")
+
+label_positions <- asia_energy_trend |> 
+  group_by(energy_type) |> 
+  filter(year == max(year)) |> 
+  ungroup()
+
+custom_colors <- c(
+  "fossil_fuel" = "brown",
+  "coal" = "#696969",
+  "oil" = "#D2691E",
+  "gas" = "skyblue",
+  "renewables" = "lightgreen"
+)
 
 ggplot(asia_energy_trend, aes(x = year, y = total_consumption, color = energy_type)) +
   geom_line() +
   geom_point() +
+  scale_color_manual(values = custom_colors) +
+  geom_text_repel(
+    data = label_positions, 
+    aes(label = energy_type), 
+    nudge_x = 3, 
+    direction = "y", 
+    hjust = 1, vjust = 1,
+    size = 4
+  ) +
   labs(
-    x = NULL,
+    x = "Year",
     y = "Energy Consumption (TWh)",
     color = "Energy Type"
   ) +
   theme_minimal() +
-  theme(legend.position = "bottom")
+  theme(legend.position = "none")
 ```
 
 ## Fossil Fuel Consumption
@@ -324,3 +363,7 @@ ggplot(energy_boxplot_data, aes(x = country, y = fossil_fuel_consumption, fill =
   theme_minimal() +
   theme(legend.position = "none")
 ```
+
+#  
+
+Thank you for your attention!
