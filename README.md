@@ -32,7 +32,7 @@ Follow these steps to get started with this project:
 
 3. Restore R environment:
 
-Run ``` renv::restore() ``` in RStudio to install the required R packages.
+   Run ``` renv::restore() ``` in RStudio to install the required R packages.
 
 
 ## Usage
