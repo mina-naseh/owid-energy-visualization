@@ -2,6 +2,7 @@
 
 ## Description
 Data Visualization with R on [owid-energy Dataset](https://github.com/rfordatascience/tidytuesday/blob/master/data/2023/2023-06-06/readme.md)
+This project provides a comprehensive visualization of the global energy data from the [owid-energy Dataset](https://github.com/rfordatascience/tidytuesday/blob/master/data/2023/2023-06-06/readme.md), leveraging R programming language. It aims to explore trends, distributions, and potential insights within various aspects of energy data such as production, consumption, renewables, and emissions across different countries and time periods.
 
 ## Table of Contents
 - [Installation](#installation)
@@ -11,7 +12,10 @@ Data Visualization with R on [owid-energy Dataset](https://github.com/rfordatasc
 - [License](#license)
 
 ## Installation
-Steps to set up the project. Include dependencies and renv restore if applicable.
+1. Clone the repository:
+   ``` git clone https://github.com/your-username/owid-energy-visualization.git
+cd owid-energy-visualization
+
 
 ## Usage
 Instructions on how to run or use the code.
