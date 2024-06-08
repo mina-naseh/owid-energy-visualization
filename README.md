@@ -13,12 +13,19 @@ This project provides a comprehensive visualization of the global energy data fr
 - [License](#license)
 
 ## Installation
-1. Clone the repository:
-   ``` git clone https://github.com/your-username/owid-energy-visualization.git ```
+Follow these steps to get started with this project:
+
+1. **Clone the repository:** Use Git to clone the repository to your local machine. Open your terminal (command prompt or similar on Windows), and run the following commands:
+
+   ```bash
+   # Clone the repository
+   git clone https://github.com/your-username/owid-energy-visualization.git
    
-   ``` cd owid-energy-visualization ```
+   # Navigate to the project directory
+   cd owid-energy-visualization
+
    
-3. Install R and RStudio:
+2. Install R and RStudio:
 
 - Download and install R from [CRAN](https://cran.r-project.org/)
 - Download and install RStudio from [RStudio Download](https://posit.co/download/rstudio-desktop/)
