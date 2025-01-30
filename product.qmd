@@ -364,6 +364,6 @@ ggplot(energy_boxplot_data, aes(x = country, y = fossil_fuel_consumption, fill =
   theme(legend.position = "none")
 ```
 
-#  
+# 
 
 Thank you for your attention!
